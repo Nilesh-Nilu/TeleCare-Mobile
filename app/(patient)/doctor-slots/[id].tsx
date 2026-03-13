@@ -34,7 +34,11 @@ export default function SlotSelectionScreen() {
 
   const doctor = doctorData?.data;
   const schedule = scheduleData?.data || [];
-  const bookedSlots = bookedData?.data || [];
+  const bookedSlots = Array.isArray(bookedData?.data)
+    ? bookedData.data
+    : Array.isArray(bookedData?.data?.bookedSlots)
+      ? bookedData.data.bookedSlots
+      : [];
 
   const daySchedule = useMemo(() => {
     const dayOfWeek = selectedDate.getDay();
@@ -63,8 +67,11 @@ export default function SlotSelectionScreen() {
       const endStr = format(slotEnd, 'HH:mm');
       const isBooked = bookedSlots.some(
         (b: any) => {
-          if (!b?.startTime) return false;
-          const bStart = new Date(b.startTime);
+          const raw = b?.startTime || b?.start || '';
+          if (!raw) return false;
+          if (/^\d{2}:\d{2}$/.test(String(raw))) return String(raw) === startStr;
+          const bStart = new Date(raw);
+          if (Number.isNaN(bStart.getTime())) return false;
           return format(bStart, 'yyyy-MM-dd') === dateStr && format(bStart, 'HH:mm') === startStr;
         },
       );

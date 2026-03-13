@@ -32,6 +32,7 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [specialization, setSpecialization] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
   const [isLoading, setIsLoading] = useState(false);
@@ -69,6 +70,10 @@ export default function RegisterScreen() {
       setError('Passwords do not match');
       return false;
     }
+    if (role === 'doctor' && !specialization.trim()) {
+      setError('Please enter specialization');
+      return false;
+    }
     return true;
   };
 
@@ -84,11 +89,12 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await register({
-        role: role === 'doctor' ? 'DOCTOR' : 'STAFF',
+        role: role === 'doctor' ? 'doctor' : 'patient',
         name: `${firstName} ${lastName}`,
         email,
         password,
         phone,
+        ...(role === 'doctor' ? { specialization: specialization.trim() } : {}),
       }).unwrap();
       router.replace('/(auth)/login');
     } catch (err: unknown) {
@@ -246,6 +252,20 @@ export default function RegisterScreen() {
                   activeOutlineColor={accentColor}
                   textColor={Colors.textPrimary}
                 />
+
+                {role === 'doctor' && (
+                  <TextInput
+                    label="Specialization"
+                    value={specialization}
+                    onChangeText={setSpecialization}
+                    mode="outlined"
+                    left={<TextInput.Icon icon="stethoscope" color={Colors.textSecondary} />}
+                    style={styles.input}
+                    outlineColor={Colors.border}
+                    activeOutlineColor={accentColor}
+                    textColor={Colors.textPrimary}
+                  />
+                )}
 
                 <Text style={styles.genderLabel}>Gender</Text>
                 <SegmentedButtons

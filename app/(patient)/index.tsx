@@ -30,8 +30,8 @@ const quickActions = [
   { icon: 'calendar-outline', label: 'Appointments', color: Colors.info, route: '/(patient)/appointments' },
   { icon: 'file-document-outline', label: 'Prescriptions', color: Colors.accent, route: '/(patient)/prescriptions' },
   { icon: 'star-outline', label: 'Plans', color: Colors.warning, route: '/(patient)/subscription' },
-  { icon: 'folder-outline', label: 'Records', color: Colors.secondary, route: '/(patient)/records' },
-  { icon: 'heart-pulse', label: 'Vitals', color: Colors.error, route: '/(patient)/vitals' },
+  // { icon: 'folder-outline', label: 'Records', color: Colors.secondary, route: '/(patient)/records' },
+  // { icon: 'heart-pulse', label: 'Vitals', color: Colors.error, route: '/(patient)/vitals' },
 ] as const;
 
 export default function PatientHomeScreen() {

@@ -3,6 +3,50 @@ import { getAccessToken } from '../services/api';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://videoconsultapi.msidemopro.com/api';
 
+const normalizePlan = (plan: any) => {
+  const name = String(plan?.name || 'Plan');
+  const isPremium = name.toLowerCase().includes('premium');
+  const durationMonths = Number(plan?.durationMonths ?? 1);
+  const type = durationMonths >= 12 ? 'yearly' : 'monthly';
+  const maxConsultations = Number(plan?.consultationLimit ?? 0);
+  return {
+    id: String(plan?.id ?? ''),
+    name,
+    type,
+    tier: isPremium ? 'PREMIUM' : 'BASE',
+    price: Number(plan?.price ?? 0),
+    originalPrice: Number(plan?.price ?? 0),
+    features: isPremium
+      ? [
+          `${maxConsultations} consultations`,
+          'Video + voice consultations',
+          'Priority support',
+        ]
+      : [
+          `${maxConsultations} consultations`,
+          'Voice consultations',
+          'Digital prescriptions',
+        ],
+    maxConsultations,
+    isPopular: false,
+  };
+};
+
+const normalizeSubscriptionStatus = (sub: any) => {
+  if (!sub) return sub;
+  const normalizedPlan = normalizePlan(sub.plan);
+  const maxConsultations = Number(normalizedPlan.maxConsultations || 0);
+  const remainingConsultations = Number(sub.remainingConsultations || 0);
+  return {
+    ...sub,
+    id: String(sub.id ?? ''),
+    planId: String(sub.planId ?? normalizedPlan.id),
+    plan: normalizedPlan,
+    autoRenew: false,
+    consultationsUsed: Math.max(0, maxConsultations - remainingConsultations),
+  };
+};
+
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
@@ -53,13 +97,45 @@ export const apiSlice = createApi({
       query: (doctorId: number) => `/doctors/${doctorId}/schedule`,
       providesTags: ['Slots'],
     }),
+    updateMyDaySchedule: builder.mutation({
+      query: ({
+        dayOfWeek,
+        ...data
+      }: {
+        dayOfWeek: number;
+        isActive?: boolean;
+        startTime?: string;
+        endTime?: string;
+        slotDuration?: number;
+        breaks?: { startTime: string; endTime: string }[];
+      }) => ({
+        url: `/doctors/me/schedule/${dayOfWeek}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Slots', 'Doctors'],
+    }),
 
-    getPlans: builder.query({ query: () => '/subscription/plans', providesTags: ['Subscription'] }),
+    getPlans: builder.query({
+      query: () => '/subscription/plans',
+      transformResponse: (response: any) => ({
+        ...response,
+        data: Array.isArray(response?.data) ? response.data.map(normalizePlan) : [],
+      }),
+      providesTags: ['Subscription'],
+    }),
     subscribePlan: builder.mutation({
       query: (data: { planId: number }) => ({ url: '/subscription/subscribe', method: 'POST', body: data }),
       invalidatesTags: ['Subscription'],
     }),
-    getSubscriptionStatus: builder.query({ query: () => '/subscription/status', providesTags: ['Subscription'] }),
+    getSubscriptionStatus: builder.query({
+      query: () => '/subscription/status',
+      transformResponse: (response: any) => ({
+        ...response,
+        data: normalizeSubscriptionStatus(response?.data),
+      }),
+      providesTags: ['Subscription'],
+    }),
     renewSubscription: builder.mutation({
       query: (data: { subscriptionId: number }) => ({ url: '/subscription/renew', method: 'POST', body: data }),
       invalidatesTags: ['Subscription'],
@@ -86,7 +162,13 @@ export const apiSlice = createApi({
       providesTags: ['Slots'],
     }),
     bookAppointment: builder.mutation({
-      query: (data: { doctorId: number; appointmentDate: string; startTime: string; endTime: string }) => ({
+      query: (data: {
+        doctorId: number;
+        appointmentDate: string;
+        startTime: string;
+        endTime: string;
+        callType?: 'VOICE' | 'VIDEO';
+      }) => ({
         url: '/appointments/book', method: 'POST', body: data,
       }),
       invalidatesTags: ['Appointments', 'Slots'],
@@ -131,13 +213,23 @@ export const apiSlice = createApi({
 
     createPrescription: builder.mutation({
       query: (data: {
-        consultationId: number; patientId: number; diagnosis: string;
-        medicines: { name: string; dose: string; duration: string }[]; advice: string;
+        consultationId?: number;
+        appointmentId?: number;
+        doctorId?: number;
+        patientId: number;
+        diagnosis: string;
+        medicines: { name: string; dose: string; duration: string }[];
+        advice: string;
+        imageBase64?: string;
       }) => ({ url: '/prescriptions', method: 'POST', body: data }),
       invalidatesTags: ['Prescriptions'],
     }),
     getPrescriptionById: builder.query({
       query: (id: number) => `/prescriptions/${id}`,
+      providesTags: ['Prescriptions'],
+    }),
+    getMyPrescriptions: builder.query({
+      query: () => '/prescriptions/my',
       providesTags: ['Prescriptions'],
     }),
     getPatientPrescriptions: builder.query({
@@ -179,7 +271,22 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ['Payments'],
     }),
-    getPaymentHistory: builder.query({ query: () => '/payment/history', providesTags: ['Payments'] }),
+    getPaymentHistory: builder.query({
+      query: () => '/payment/history',
+      transformResponse: (response: any) => ({
+        ...response,
+        data: Array.isArray(response?.data)
+          ? response.data.map((item: any) => ({
+              ...item,
+              id: String(item?.id ?? ''),
+              amount: Number(item?.amount ?? 0),
+              type: 'subscription',
+              currency: 'INR',
+            }))
+          : [],
+      }),
+      providesTags: ['Payments'],
+    }),
 
     createNotification: builder.mutation({
       query: (data: { userId: number; title: string; body: string }) => ({
@@ -187,7 +294,24 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ['Notifications'],
     }),
-    getMyNotifications: builder.query({ query: () => '/notifications/my', providesTags: ['Notifications'] }),
+    getMyNotifications: builder.query({
+      query: () => '/notifications/my',
+      transformResponse: (response: any) => ({
+        ...response,
+        data: Array.isArray(response?.data)
+          ? response.data.map((item: any) => ({
+              ...item,
+              id: String(item?.id ?? ''),
+              userId: String(item?.userId ?? ''),
+              type: 'general',
+              message: item?.body || '',
+              isRead: false,
+              createdAt: item?.sentAt || new Date().toISOString(),
+            }))
+          : [],
+      }),
+      providesTags: ['Notifications'],
+    }),
   }),
 });
 
@@ -196,12 +320,13 @@ export const {
   useLogoutUserMutation, useGetAuthMeQuery,
   useGetProfileQuery, useGetUsersQuery,
   useGetDoctorsQuery, useGetDoctorByIdQuery, useGetDoctorScheduleQuery,
+  useUpdateMyDayScheduleMutation,
   useGetPlansQuery, useSubscribePlanMutation, useGetSubscriptionStatusQuery, useRenewSubscriptionMutation,
   useGetMyAppointmentsQuery, useGetAppointmentByIdQuery, useGetDoctorQueueQuery,
   useGetBookedSlotsQuery, useBookAppointmentMutation, useRescheduleAppointmentMutation, useCancelAppointmentMutation,
   useUpdateAppointmentStatusMutation,
   useCreateVideoSessionMutation, useGetVideoTokenQuery, useGetCallTypeQuery, useEndVideoSessionMutation,
-  useCreatePrescriptionMutation, useGetPrescriptionByIdQuery, useGetPatientPrescriptionsQuery,
+  useCreatePrescriptionMutation, useGetPrescriptionByIdQuery, useGetMyPrescriptionsQuery, useGetPatientPrescriptionsQuery,
   useGetMedicalRecordsQuery, useGetHealthVitalsQuery, useAddHealthVitalMutation, useGetPatientRecordsQuery,
   useGetDoctorEarningsQuery, useGetDoctorDashboardQuery,
   useInitiatePaymentMutation, useGetPaymentHistoryQuery,

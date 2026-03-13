@@ -33,7 +33,8 @@ export default function PatientQueueScreen() {
           const patient = item.patient;
           const patientName = getDisplayName(patient, { fallback: 'Patient' });
           const normalizedStatus = String(item.status || '').toLowerCase();
-          const isNext = index === 0 && ['booked', 'scheduled', 'confirmed', 'in_progress'].includes(normalizedStatus);
+          const canStart = ['booked', 'scheduled', 'confirmed', 'in_progress'].includes(normalizedStatus);
+          const isNext = index === 0 && canStart;
 
           return (
             <Card style={[styles.card, isNext && styles.nextCard]}>
@@ -51,7 +52,7 @@ export default function PatientQueueScreen() {
                 </View>
                 <View style={styles.actions}>
                   <StatusBadge status={item.status} />
-                  {isNext && (
+                  {canStart && (
                     <Button
                       mode="contained"
                       compact

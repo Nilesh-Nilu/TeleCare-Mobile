@@ -4,8 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Linking,
+  Alert,
+  Platform,
 } from 'react-native';
-import { Card, Divider, Chip } from 'react-native-paper';
+import { Card, Divider, Chip, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
@@ -25,6 +28,43 @@ export default function PrescriptionDetailScreen() {
   if (!rx) return <LoadingScreen />;
 
   const docName = getDisplayName(rx.doctor, { doctorPrefix: true, fallback: 'Doctor' });
+  const apiBase = String(process.env.EXPO_PUBLIC_API_URL || '').replace(/\/api\/?$/, '');
+  const normalizeDownloadUrl = (raw: string) => {
+    if (!raw) return '';
+    let url = raw.startsWith('http') ? raw : `${apiBase}${raw}`;
+    if (Platform.OS === 'android') {
+      // Android emulator cannot resolve host machine as localhost.
+      url = url.replace('://localhost', '://10.0.2.2').replace('://127.0.0.1', '://10.0.2.2');
+    }
+    return url;
+  };
+  const fileUrl = rx.imagePath
+    ? normalizeDownloadUrl(String(rx.imagePath))
+    : rx.pdfUrl
+      ? normalizeDownloadUrl(String(rx.pdfUrl))
+      : '';
+
+  const handleDownload = async () => {
+    if (!fileUrl) {
+      Alert.alert('Unavailable', 'Prescription file is not available yet.');
+      return;
+    }
+    try {
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const anchor = document.createElement('a');
+        anchor.href = fileUrl;
+        anchor.target = '_blank';
+        anchor.download = 'prescription';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        return;
+      }
+      await Linking.openURL(fileUrl);
+    } catch {
+      Alert.alert('Error', 'Unable to open prescription file');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -111,6 +151,16 @@ export default function PrescriptionDetailScreen() {
             </Card.Content>
           </Card>
         )}
+
+        <Button
+          mode="contained"
+          icon="download"
+          onPress={handleDownload}
+          style={styles.downloadBtn}
+          disabled={!fileUrl}
+        >
+          Download Prescription
+        </Button>
       </ScrollView>
     </SafeAreaView>
   );
@@ -142,4 +192,5 @@ const styles = StyleSheet.create({
   followUpRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   followUpLabel: { fontSize: 14, color: Colors.textSecondary },
   followUpDate: { fontSize: 14, fontWeight: '600', color: Colors.warning },
+  downloadBtn: { borderRadius: 12, marginTop: 4, marginBottom: 12 },
 });

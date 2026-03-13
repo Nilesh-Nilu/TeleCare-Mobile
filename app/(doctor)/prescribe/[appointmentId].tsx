@@ -5,11 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Button, Card, TextInput, IconButton, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import {
   useGetAppointmentByIdQuery,
   useCreatePrescriptionMutation,
@@ -35,6 +38,23 @@ const emptyMedicine: MedicineEntry = {
   instructions: '',
 };
 
+const readWebFileAsBase64 = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      if (!base64) {
+        reject(new Error('Unable to read selected file'));
+        return;
+      }
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('Unable to read selected file'));
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function PrescriptionWriterScreen() {
   const { appointmentId } = useLocalSearchParams<{ appointmentId: string }>();
   const { data, isLoading } = useGetAppointmentByIdQuery(Number(appointmentId));
@@ -43,6 +63,9 @@ export default function PrescriptionWriterScreen() {
   const [diagnosis, setDiagnosis] = useState('');
   const [medicines, setMedicines] = useState<MedicineEntry[]>([{ ...emptyMedicine }]);
   const [advice, setAdvice] = useState('');
+  const [prescriptionImageBase64, setPrescriptionImageBase64] = useState<string>('');
+  const [prescriptionImageName, setPrescriptionImageName] = useState<string>('');
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   if (isLoading) return <LoadingScreen />;
   const appointment = data?.data;
@@ -61,19 +84,94 @@ export default function PrescriptionWriterScreen() {
     setMedicines(medicines.filter((_, i) => i !== index));
   };
 
+  const handlePickPrescriptionImage = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: false,
+          quality: 0.8,
+          base64: false,
+        });
+        if (result.canceled || result.assets.length === 0) return;
+        const file = result.assets[0];
+        const webFile = (file as any).file as File | undefined;
+
+        if (webFile) {
+          const base64 = await readWebFileAsBase64(webFile);
+          setPrescriptionImageBase64(base64);
+          setPrescriptionImageName(webFile.name || 'prescription-image.jpg');
+          return;
+        }
+
+        // Fallback for browsers that only provide a data URI
+        if (file.uri?.startsWith('data:') && file.uri.includes(',')) {
+          const base64 = file.uri.split(',')[1] || '';
+          if (!base64) throw new Error('Invalid image data');
+          setPrescriptionImageBase64(base64);
+          setPrescriptionImageName('prescription-image.jpg');
+          return;
+        }
+
+        throw new Error('Web image selection failed');
+      }
+
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please allow photo/media access to select an image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        base64: false,
+      });
+      if (result.canceled || result.assets.length === 0) return;
+
+      const file = result.assets[0];
+      if (!file.uri || (file.type && !file.type.includes('image'))) {
+        Alert.alert('Error', 'Invalid file selected');
+        return;
+      }
+
+      const base64 = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      setPrescriptionImageBase64(base64);
+      const inferredName =
+        (file as any).fileName ||
+        file.uri.split('/').pop() ||
+        'prescription-image.jpg';
+      setPrescriptionImageName(inferredName);
+    } catch {
+      Alert.alert('Error', 'Failed to read selected image');
+    }
+  };
+
   const handleSubmit = async () => {
+    setSubmitMessage(null);
     if (!diagnosis.trim()) {
-      Alert.alert('Error', 'Please enter a diagnosis');
+      setSubmitMessage({ type: 'error', text: 'Please enter a diagnosis.' });
       return;
     }
     if (medicines.some((m) => !m.name.trim() || !m.dosage.trim())) {
-      Alert.alert('Error', 'Please fill in medicine name and dosage');
+      setSubmitMessage({ type: 'error', text: 'Please fill in medicine name and dosage.' });
+      return;
+    }
+    const consultationId = Number((appointment as any)?.consultationId);
+    const resolvedAppointmentId = Number(appointmentId || (appointment as any)?.id);
+    if (!resolvedAppointmentId || Number.isNaN(resolvedAppointmentId)) {
+      setSubmitMessage({ type: 'error', text: 'Invalid appointment.' });
       return;
     }
 
     try {
       await createPrescription({
-        consultationId: Number(appointmentId),
+        ...(consultationId && !Number.isNaN(consultationId) ? { consultationId } : {}),
+        appointmentId: resolvedAppointmentId,
+        doctorId: Number(appointment.doctorId),
         patientId: Number(appointment.patientId),
         diagnosis,
         medicines: medicines.map((m) => ({
@@ -82,13 +180,27 @@ export default function PrescriptionWriterScreen() {
           duration: m.duration,
         })),
         advice,
+        ...(prescriptionImageBase64 ? { imageBase64: prescriptionImageBase64 } : {}),
       }).unwrap();
 
-      Alert.alert('Success', 'Prescription created successfully', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    } catch {
-      Alert.alert('Error', 'Failed to create prescription');
+      setSubmitMessage({ type: 'success', text: 'Prescription created successfully.' });
+      if (Platform.OS !== 'web') {
+        Alert.alert('Success', 'Prescription created successfully', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        setTimeout(() => router.back(), 700);
+      }
+    } catch (err) {
+      const apiErr = err as { data?: { message?: string }; error?: string; status?: number | string };
+      setSubmitMessage({
+        type: 'error',
+        text:
+          apiErr?.data?.message ||
+          apiErr?.error ||
+          (apiErr?.status ? `Failed to create prescription (${apiErr.status})` : '') ||
+          'Failed to create prescription',
+      });
     }
   };
 
@@ -217,6 +329,23 @@ export default function PrescriptionWriterScreen() {
           activeOutlineColor={Colors.secondary}
         />
 
+        <Card style={styles.uploadCard}>
+          <Card.Content>
+            <Text style={styles.uploadTitle}>Upload Prescription Image (Optional)</Text>
+            <Button
+              mode="outlined"
+              icon="image-outline"
+              onPress={handlePickPrescriptionImage}
+              style={styles.uploadBtn}
+            >
+              {prescriptionImageName ? 'Change Image' : 'Select Image'}
+            </Button>
+            {prescriptionImageName ? (
+              <Text style={styles.uploadFileName}>{prescriptionImageName}</Text>
+            ) : null}
+          </Card.Content>
+        </Card>
+
         <Button
           mode="contained"
           onPress={handleSubmit}
@@ -230,6 +359,16 @@ export default function PrescriptionWriterScreen() {
         >
           {creating ? 'Creating...' : 'Create Prescription'}
         </Button>
+        {submitMessage ? (
+          <Text
+            style={[
+              styles.submitMessage,
+              submitMessage.type === 'error' ? styles.submitMessageError : styles.submitMessageSuccess,
+            ]}
+          >
+            {submitMessage.text}
+          </Text>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -251,7 +390,14 @@ const styles = StyleSheet.create({
   medInput: { marginBottom: 10, backgroundColor: Colors.white },
   medRow: { flexDirection: 'row', gap: 10 },
   medHalf: { flex: 1 },
+  uploadCard: { backgroundColor: Colors.white, borderRadius: 12, marginBottom: 12 },
+  uploadTitle: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginBottom: 8 },
+  uploadBtn: { borderRadius: 10, alignSelf: 'flex-start' },
+  uploadFileName: { marginTop: 8, color: Colors.textSecondary, fontSize: 12 },
   submitBtn: { borderRadius: 12, marginTop: 8 },
   submitBtnContent: { paddingVertical: 6 },
   submitBtnLabel: { fontSize: 16, fontWeight: '600' },
+  submitMessage: { marginTop: 10, fontSize: 14, fontWeight: '600' },
+  submitMessageError: { color: Colors.error },
+  submitMessageSuccess: { color: Colors.success || '#16a34a' },
 });

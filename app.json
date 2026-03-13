@@ -38,11 +38,12 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single",
+      "output": "static",
       "favicon": "./assets/favicon.png",
       "name": "TeleCare Pro",
       "shortName": "TeleCare",
       "description": "Online doctor consultations, prescriptions & health records",
+      "display": "standalone",
       "themeColor": "#2563EB",
       "backgroundColor": "#0F172A",
       "lang": "en",

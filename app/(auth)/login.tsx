@@ -22,8 +22,8 @@ import { Colors, Radius, Spacing, Typography } from '../../src/theme';
 
 export default function LoginScreen() {
   const creds = {
-    patient: { email: 'smoke_patient@telecare.com', password: 'password123' },
-    doctor:  { email: 'dr.priya@telecare.com',      password: 'Doctor@123' },
+    patient: { email: 'smoke.patient.1773206273@gmail.com', password: 'Pass@123' },
+    doctor:  { email: 'smoke.doctor.1773206273@gmail.com',      password: 'Pass@123' },
   };
 
   const dispatch = useAppDispatch();
@@ -65,27 +65,38 @@ export default function LoginScreen() {
       setAccessToken(tokens.accessToken);
       dispatch(setTokens(tokens));
 
-      const apiRole = (data.user?.role || '').toUpperCase();
-      const mappedRole: 'patient' | 'doctor' | 'admin' =
-        apiRole === 'DOCTOR' ? 'doctor' : apiRole === 'ADMIN' ? 'admin' : 'patient';
-      const nameParts = (data.user?.name || '').split(' ');
+      const apiRole = (data.role || '').toUpperCase();
+      const mappedRole: 'patient' | 'doctor' | 'admin' | 'support' =
+        apiRole === 'DOCTOR'
+          ? 'doctor'
+          : apiRole === 'ADMIN'
+            ? 'admin'
+            : apiRole === 'SUPPORT'
+              ? 'support'
+              : 'patient';
+      const nameParts = String(data.name || '').split(' ');
       const user = {
-        id: String(data.user?.id || ''),
-        email: data.user?.email || emailOrPhone,
-        phone: data.user?.phone || '',
-        firstName: data.user?.firstName || nameParts[0] || '',
-        lastName: data.user?.lastName || nameParts.slice(1).join(' ') || '',
+        id: String(data.id || ''),
+        email: data.email || emailOrPhone,
+        phone: data.phone || '',
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
         role: mappedRole,
-        avatar: data.user?.avatar || null,
-        isOnline: Boolean(data.user?.isOnline),
-        isVerified: Boolean(data.user?.isVerified),
-        createdAt: data.user?.createdAt || new Date().toISOString(),
+        avatar: undefined,
+        isOnline: false,
+        isVerified: true,
+        createdAt: new Date().toISOString(),
       };
       dispatch(setUser(user));
       router.replace(user.role === 'doctor' ? '/(doctor)' : '/(patient)');
     } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string } };
-      setError(apiErr?.data?.message || 'Login failed. Please try again.');
+      const apiErr = err as { data?: { message?: string }; error?: string; status?: number | string };
+      setError(
+        apiErr?.data?.message ||
+          apiErr?.error ||
+          (apiErr?.status ? `Login failed (${apiErr.status}).` : '') ||
+          'Login failed. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }

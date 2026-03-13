@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useGetPatientRecordsQuery } from '../../../src/store/apiSlice';
-import { AppHeader, EmptyState, LoadingScreen } from '../../../src/components';
+import { AppHeader, EmptyState } from '../../../src/components';
 import { formatDate } from '../../../src/utils/formatters';
 import { Colors } from '../../../src/theme';
 import type { MedicalRecord } from '../../../src/types';
@@ -21,8 +21,6 @@ export default function PatientRecordsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading, refetch } = useGetPatientRecordsQuery(Number(id));
   const records: MedicalRecord[] = data?.data || [];
-
-  if (isLoading && records.length === 0) return <LoadingScreen />;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

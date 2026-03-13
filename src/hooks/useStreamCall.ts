@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, PermissionsAndroid } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../store';
 import { setConnecting, setConnected, addRemoteUid } from '../slices/videoSlice';
 import api from '../services/api';
@@ -66,6 +66,27 @@ export function useStreamCall({ callId, appointmentId, callType = 'VOICE', autoJ
   const [remoteUid, setRemoteUid] = useState<number | null>(null);
   const [localUid, setLocalUid] = useState<number | null>(null);
   const [audioPlaybackFailed, setAudioPlaybackFailed] = useState(false);
+
+  const ensureNativePermissions = useCallback(async () => {
+    if (Platform.OS !== 'android') return true;
+
+    const permissions = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
+    if (callType !== 'VOICE') {
+      permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
+    }
+
+    const result = await PermissionsAndroid.requestMultiple(permissions);
+    const denied = permissions.filter((p) => result[p] !== PermissionsAndroid.RESULTS.GRANTED);
+    if (denied.length > 0) {
+      Alert.alert(
+        'Permission Required',
+        'Microphone permission is required to join calls.' +
+          (callType !== 'VOICE' ? ' Camera permission is also required for video calls.' : '')
+      );
+      return false;
+    }
+    return true;
+  }, [callType]);
 
   const fetchToken = useCallback(async (): Promise<TokenResponse | null> => {
     const tokenId = appointmentId || callId;
@@ -259,6 +280,12 @@ export function useStreamCall({ callId, appointmentId, callType = 'VOICE', autoJ
       }
 
       if (!createAgoraRtcEngine) {
+        dispatch(setConnecting(false));
+        return;
+      }
+
+      const hasPermissions = await ensureNativePermissions();
+      if (!hasPermissions) {
         dispatch(setConnecting(false));
         return;
       }

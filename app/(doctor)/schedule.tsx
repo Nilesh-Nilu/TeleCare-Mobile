@@ -8,7 +8,11 @@ import {
 } from 'react-native';
 import { Switch } from 'react-native-paper';
 import { useAppSelector } from '../../src/store';
-import { useGetDoctorScheduleQuery } from '../../src/store/apiSlice';
+import {
+  useGetDoctorScheduleQuery,
+  useGetDoctorsQuery,
+  useUpdateMyDayScheduleMutation,
+} from '../../src/store/apiSlice';
 import { AppCard, AppHeader, LoadingScreen, ScreenContainer } from '../../src/components';
 import { Colors, Radius, Spacing, Typography } from '../../src/theme';
 import type { DoctorSchedule } from '../../src/types';
@@ -17,7 +21,13 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 
 export default function AvailabilityManagerScreen() {
   const { user } = useAppSelector((s) => s.auth);
-  const { data, isLoading } = useGetDoctorScheduleQuery(Number(user?.id));
+  const { data: doctorListData } = useGetDoctorsQuery(
+    { search: user?.email, limit: 1 },
+    { skip: !user?.email },
+  );
+  const doctorId = Number(doctorListData?.data?.[0]?.id);
+  const { data, isLoading, refetch } = useGetDoctorScheduleQuery(doctorId, { skip: !doctorId });
+  const [updateMyDaySchedule, { isLoading: isUpdating }] = useUpdateMyDayScheduleMutation();
   const schedules: DoctorSchedule[] = data?.data || [];
 
   if (isLoading) return <LoadingScreen />;
@@ -50,8 +60,14 @@ export default function AvailabilityManagerScreen() {
                   </View>
                   <Switch
                     value={isActive}
-                    onValueChange={() => {
-                      Alert.alert('Info', 'Schedule editing will be available with API integration');
+                    disabled={isUpdating}
+                    onValueChange={async (nextValue) => {
+                      try {
+                        await updateMyDaySchedule({ dayOfWeek: idx, isActive: nextValue }).unwrap();
+                        refetch();
+                      } catch (error: any) {
+                        Alert.alert('Update failed', error?.data?.message || 'Could not update availability');
+                      }
                     }}
                     color={Colors.secondary}
                   />

@@ -67,23 +67,34 @@ export default function DoctorLoginScreen() {
       setAccessToken(tokens.accessToken);
       dispatch(setTokens(tokens));
 
-      const nameParts = (data.user?.name || '').split(' ');
+      const apiRole = (data.role || '').toLowerCase();
+      if (apiRole !== 'doctor') {
+        setError('This account is not a doctor account.');
+        return;
+      }
+
+      const nameParts = String(data.name || '').split(' ');
       const user = {
-        id: String(data.user?.id || ''),
-        email: data.user?.email || emailOrReg,
-        phone: data.user?.phone || '',
+        id: String(data.id || ''),
+        email: data.email || emailOrReg,
+        phone: data.phone || '',
         firstName: nameParts[0] || '',
         lastName: nameParts.slice(1).join(' ') || '',
         role: 'doctor' as const,
-        isOnline: Boolean(data.user?.isOnline),
+        isOnline: false,
         isVerified: true,
-        createdAt: data.user?.createdAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       };
       dispatch(setUser(user));
       router.replace('/(doctor)');
     } catch (err: unknown) {
-      const apiErr = err as { data?: { message?: string } };
-      setError(apiErr?.data?.message || 'Login failed. Please try again.');
+      const apiErr = err as { data?: { message?: string }; error?: string; status?: number | string };
+      setError(
+        apiErr?.data?.message ||
+          apiErr?.error ||
+          (apiErr?.status ? `Login failed (${apiErr.status}).` : '') ||
+          'Login failed. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }

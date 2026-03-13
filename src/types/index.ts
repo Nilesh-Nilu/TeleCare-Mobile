@@ -1,4 +1,4 @@
-export type UserRole = 'patient' | 'doctor' | 'admin';
+export type UserRole = 'patient' | 'doctor' | 'admin' | 'support';
 
 export interface User {
   id: string;
@@ -134,6 +134,7 @@ export interface Medicine {
 
 export interface Prescription {
   id: string;
+  consultationId?: string;
   appointmentId: string;
   doctorId: string;
   patientId: string;
@@ -144,6 +145,7 @@ export interface Prescription {
   notes?: string;
   followUpDate?: string;
   pdfUrl?: string;
+  imagePath?: string;
   createdAt: string;
 }
 

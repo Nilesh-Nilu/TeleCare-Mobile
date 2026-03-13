@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
@@ -76,12 +77,14 @@ const TIER_META: Record<string, {
 };
 
 export default function SubscriptionScreen() {
+  const insets = useSafeAreaInsets();
   const { data: planData, isLoading } = useGetPlansQuery(undefined);
   const { data: statusData } = useGetSubscriptionStatusQuery(undefined);
   const [subscribePlan] = useSubscribePlanMutation();
   const [billing, setBilling] = useState<BillingCycle>('monthly');
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [error, setError] = useState('');
 
   const plans: SubscriptionPlan[] = planData?.data || [];
   const activeSub = statusData?.data;
@@ -103,14 +106,20 @@ export default function SubscriptionScreen() {
   const selectedPlan = sorted.find((p) => String(p.id) === selectedPlanId) ?? null;
 
   const handlePurchaseNow = async () => {
-    if (!selectedPlan) return;
+    setError('');
+    if (!selectedPlan) {
+      setError('Please select a plan first.');
+      return;
+    }
     setPurchasing(true);
     try {
       await subscribePlan({ planId: Number(selectedPlan.id) }).unwrap();
       setSelectedPlanId(null);
       router.replace('/(patient)/subscription/active');
     } catch (err: any) {
-      Alert.alert('Purchase Failed', err?.data?.message || 'Please try again.');
+      const message = err?.data?.message || 'Purchase failed. Please try again.';
+      setError(message);
+      Alert.alert('Purchase Failed', message);
     } finally {
       setPurchasing(false);
     }
@@ -361,14 +370,15 @@ export default function SubscriptionScreen() {
           ))}
         </View>
 
-        <View style={{ height: selectedPlan ? 100 : 24 }} />
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
+        <View style={{ height: selectedPlan ? insets.bottom + 140 : 24 }} />
       </ScrollView>
 
       {/* Purchase Now bottom bar */}
       {selectedPlan && (() => {
         const meta = TIER_META[selectedPlan.tier as keyof typeof TIER_META] || TIER_META.BASE;
         return (
-          <View style={styles.purchaseBar}>
+          <View style={[styles.purchaseBar, { bottom: insets.bottom + 62, paddingBottom: 16 }]}>
             <View style={styles.purchaseBarInfo}>
               <Text style={styles.purchaseBarName}>{selectedPlan.name}</Text>
               <Text style={[styles.purchaseBarPrice, { color: meta.color }]}>
@@ -495,6 +505,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: Colors.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08, shadowRadius: 12, elevation: 10,
+    zIndex: 20,
   },
   purchaseBarInfo: { flex: 1, marginRight: 12 },
   purchaseBarName: { fontSize: 13, color: Colors.textSecondary, marginBottom: 2 },
@@ -503,6 +514,14 @@ const styles = StyleSheet.create({
   purchaseBtn: { borderRadius: 14 },
   purchaseBtnContent: { paddingVertical: 6, paddingHorizontal: 8 },
   purchaseBtnLabel: { fontSize: 15, fontWeight: '700' },
+  errorText: {
+    marginTop: 8,
+    marginBottom: 6,
+    fontSize: 13,
+    color: Colors.error,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
 
   tableCard: {
     backgroundColor: Colors.white, borderRadius: 18, padding: 16, marginTop: 8,

@@ -107,8 +107,8 @@ export default function EarningsDashboardScreen() {
         </View>
 
         <Text style={styles.txTitle}>Recent Transactions</Text>
-        {(earnings?.transactions || []).length > 0 ? (
-          (earnings?.transactions || []).map((tx: Payment) => (
+        {(earnings.transactions || []).length > 0 ? (
+          earnings.transactions.map((tx: Payment) => (
             <AppCard key={tx.id} style={styles.txCard} padded={false}>
               <View style={styles.txContent}>
                 <View style={styles.txInfo}>

@@ -4,8 +4,7 @@ import { Card, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppSelector } from '../../../src/store';
-import { useGetPatientPrescriptionsQuery } from '../../../src/store/apiSlice';
+import { useGetMyPrescriptionsQuery } from '../../../src/store/apiSlice';
 import { AppHeader, EmptyState, Avatar } from '../../../src/components';
 import { formatDate } from '../../../src/utils/formatters';
 import { getDisplayName } from '../../../src/utils/name';
@@ -13,8 +12,7 @@ import { Colors } from '../../../src/theme';
 import type { Prescription } from '../../../src/types';
 
 export default function PrescriptionListScreen() {
-  const { user } = useAppSelector((s) => s.auth);
-  const { data, isLoading, isFetching, refetch } = useGetPatientPrescriptionsQuery(Number(user?.id));
+  const { data, isLoading, isFetching, refetch } = useGetMyPrescriptionsQuery(undefined);
   const prescriptions: Prescription[] = data?.data || [];
 
   return (
@@ -61,7 +59,7 @@ export default function PrescriptionListScreen() {
             <EmptyState
               icon="file-document-outline"
               title="No prescriptions"
-              subtitle="Your prescriptions will appear here after consultations"
+              subtitle="Your prescriptions will appear here after doctor upload"
             />
           }
         />
