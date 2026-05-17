@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getAccessToken } from '../services/api';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://videoconsultapi.msidemopro.com/api';
+const BASE_URL = String(process.env.EXPO_PUBLIC_API_URL || '').trim() || '/api';
 
 const normalizePlan = (plan: any) => {
   const name = String(plan?.name || 'Plan');

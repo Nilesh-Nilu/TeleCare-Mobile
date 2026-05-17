@@ -174,7 +174,6 @@ export default function BookingConfirmationScreen() {
               value={selectedCallType === 'VIDEO' ? 'Video Consultation' : 'Voice Consultation'}
             />
             <Divider style={styles.divider} />
-            <DetailRow icon="currency-inr" label="Fee" value={formatCurrency(doctor.consultationFee)} highlight />
           </Card.Content>
         </Card>
 
@@ -225,10 +224,10 @@ export default function BookingConfirmationScreen() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <View style={styles.totalRow}>
+        {/* <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>{formatCurrency(doctor.consultationFee)}</Text>
-        </View>
+        </View> */}
         <Button
           mode="contained"
           onPress={handleBook}

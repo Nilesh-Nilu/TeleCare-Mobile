@@ -57,11 +57,11 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor }) => {
               </Text>
             </View>
 
-            <View style={styles.feeChip}>
+            {/* <View style={styles.feeChip}>
               <Text style={styles.feeText}>
                 {formatCurrency(consultationFee)}
               </Text>
-            </View>
+            </View> */}
           </View>
         </View>
       </View>

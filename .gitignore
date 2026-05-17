@@ -44,3 +44,9 @@ yarn-error.*
 
 # TypeScript
 *.tsbuildinfo
+# EXPO_PUBLIC_API_URL=https://videoconsultapi.msidemopro.com/api
+# EXPO_PUBLIC_SOCKET_URL=https://videoconsultapi.msidemopro.com
+# EXPO_PUBLIC_AGORA_APP_ID=5d24d50fa8e34172ab5e0c397a863286
+EXPO_PUBLIC_API_URL=http://localhost:4000/api
+EXPO_PUBLIC_SOCKET_URL=http://localhost:4000
+EXPO_PUBLIC_AGORA_APP_ID=5d24d50fa8e34172ab5e0c397a863286

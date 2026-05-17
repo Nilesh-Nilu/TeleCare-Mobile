@@ -25,13 +25,17 @@ export default function LoginScreen() {
     patient: { email: 'smoke.patient.1773206273@gmail.com', password: 'Pass@123' },
     doctor:  { email: 'smoke.doctor.1773206273@gmail.com',      password: 'Pass@123' },
   };
+  // const creds = {
+  //   patient: { email: 'demo@telecare.com', password: 'Demo@1234' },
+  //   doctor:  { email: 'doctor@telecare.com', password: 'Demo@1234' },
+  // };
 
   const dispatch = useAppDispatch();
   const [login] = useLoginMutation();
   const [role, setRole] = useState<'patient' | 'doctor'>('patient');
   const [emailOrPhone, setEmailOrPhone] = useState(creds.patient.email);
   const [password, setPassword] = useState(creds.patient.password);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 

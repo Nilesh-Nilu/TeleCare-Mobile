@@ -83,10 +83,10 @@ export default function DoctorProfileScreen() {
         <Divider style={styles.divider} />
 
         <View style={styles.feeRow}>
-          <View>
+          {/* <View>
             <Text style={styles.feeLabel}>Consultation Fee</Text>
             <Text style={styles.feeValue}>{formatCurrency(doctor.consultationFee)}</Text>
-          </View>
+          </View> */}
           <Chip
             icon={() => (
               <MaterialCommunityIcons

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ export default function SlotSelectionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [selectedDate, setSelectedDate] = useState(next7Days[0]);
   const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [nowTs, setNowTs] = useState(Date.now());
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const { data: doctorData, isLoading: docLoading } = useGetDoctorByIdQuery(Number(id));
@@ -52,17 +53,31 @@ export default function SlotSelectionScreen() {
     return matched || { startTime: '09:00', endTime: '21:00', slotDuration: 30, isActive: true };
   }, [schedule, selectedDate]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setNowTs(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   const slots = useMemo(() => {
     if (!daySchedule) return [];
     const { startTime, endTime, slotDuration = 30 } = daySchedule;
     const result: { start: string; end: string; isBooked: boolean }[] = [];
     const base = dateStr;
+    const now = new Date(nowTs);
+    const isTodaySelected = isSameDay(selectedDate, now);
     let current = parseISO(`${base}T${startTime}`);
     const endDt = parseISO(`${base}T${endTime}`);
 
     while (current < endDt) {
       const slotEnd = new Date(current.getTime() + slotDuration * 60000);
       if (slotEnd > endDt) break;
+
+      // Hide slots that have already started for today.
+      if (isTodaySelected && current.getTime() <= now.getTime()) {
+        current = slotEnd;
+        continue;
+      }
+
       const startStr = format(current, 'HH:mm');
       const endStr = format(slotEnd, 'HH:mm');
       const isBooked = bookedSlots.some(
@@ -79,7 +94,17 @@ export default function SlotSelectionScreen() {
       current = slotEnd;
     }
     return result;
-  }, [daySchedule, dateStr, bookedSlots]);
+  }, [daySchedule, dateStr, bookedSlots, selectedDate, nowTs]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const stillAvailable = slots.some(
+      (s) => s.start === selectedSlot.start && s.end === selectedSlot.end && !s.isBooked
+    );
+    if (!stillAvailable) {
+      setSelectedSlot(null);
+    }
+  }, [slots, selectedSlot]);
 
   if (docLoading) return <LoadingScreen />;
 
