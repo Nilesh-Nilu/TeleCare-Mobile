@@ -13,20 +13,34 @@ let RtcEngineContextClass: any = null;
 let ChannelProfileType: any = null;
 let ClientRoleType: any = null;
 let VideoSourceType: any = null;
-try {
-  if (Platform.OS === 'web') {
-    AgoraRTC = require('agora-rtc-sdk-ng');
-  } else {
+
+// Native SDK can be required at module level (Metro stubs it on web)
+if (Platform.OS !== 'web') {
+  try {
     const AgoraNative = require('react-native-agora');
     createAgoraRtcEngine = AgoraNative.createAgoraRtcEngine;
     RtcEngineContextClass = AgoraNative.RtcEngineContext;
     ChannelProfileType = AgoraNative.ChannelProfileType;
     ClientRoleType = AgoraNative.ClientRoleType;
     VideoSourceType = AgoraNative.VideoSourceType;
+  } catch {
+    console.warn('[useStreamCall] react-native-agora not available');
   }
-} catch {
-  console.warn(`[useStreamCall] Agora SDK not available for ${Platform.OS}`);
 }
+
+// Web SDK is loaded lazily inside joinCall to avoid Metro bundler issues
+// with top-level browser globals (window, RTCPeerConnection, etc.)
+const loadAgoraWeb = async (): Promise<any> => {
+  if (AgoraRTC) return AgoraRTC;
+  try {
+    const mod = await import('agora-rtc-sdk-ng');
+    AgoraRTC = (mod as any).default || mod;
+    return AgoraRTC;
+  } catch (e) {
+    console.warn('[useStreamCall] agora-rtc-sdk-ng failed to load:', e);
+    return null;
+  }
+};
 
 interface UseStreamCallOptions {
   callId: string;
@@ -182,10 +196,12 @@ export function useStreamCall({ callId, appointmentId, callType = 'VOICE', autoJ
       }
 
       if (Platform.OS === 'web') {
-        if (!AgoraRTC) {
+        const AgoraRTCWeb = await loadAgoraWeb();
+        if (!AgoraRTCWeb) {
           dispatch(setConnecting(false));
           return;
         }
+        AgoraRTC = AgoraRTCWeb;
 
         const webClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'h264' });
         webClientRef.current = webClient;

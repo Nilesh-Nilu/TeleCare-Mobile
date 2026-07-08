@@ -54,6 +54,7 @@ export const apiSlice = createApi({
     prepareHeaders: (headers) => {
       const token = getAccessToken();
       if (token) headers.set('Authorization', `Bearer ${token}`);
+      headers.set('ngrok-skip-browser-warning', 'true');
       return headers;
     },
   }),
@@ -91,6 +92,10 @@ export const apiSlice = createApi({
     }),
     getDoctorById: builder.query({
       query: (id: number) => `/doctors/${id}`,
+      providesTags: ['Doctors'],
+    }),
+    getMyDoctorProfile: builder.query<any, void>({
+      query: () => '/doctors/me',
       providesTags: ['Doctors'],
     }),
     getDoctorSchedule: builder.query({
@@ -319,7 +324,7 @@ export const {
   useLoginMutation, useRegisterMutation, useRefreshTokenMutation,
   useLogoutUserMutation, useGetAuthMeQuery,
   useGetProfileQuery, useGetUsersQuery,
-  useGetDoctorsQuery, useGetDoctorByIdQuery, useGetDoctorScheduleQuery,
+  useGetDoctorsQuery, useGetDoctorByIdQuery, useGetMyDoctorProfileQuery, useGetDoctorScheduleQuery,
   useUpdateMyDayScheduleMutation,
   useGetPlansQuery, useSubscribePlanMutation, useGetSubscriptionStatusQuery, useRenewSubscriptionMutation,
   useGetMyAppointmentsQuery, useGetAppointmentByIdQuery, useGetDoctorQueueQuery,

@@ -10,7 +10,7 @@ import { Switch } from 'react-native-paper';
 import { useAppSelector } from '../../src/store';
 import {
   useGetDoctorScheduleQuery,
-  useGetDoctorsQuery,
+  useGetMyDoctorProfileQuery,
   useUpdateMyDayScheduleMutation,
 } from '../../src/store/apiSlice';
 import { AppCard, AppHeader, LoadingScreen, ScreenContainer } from '../../src/components';
@@ -20,12 +20,8 @@ import type { DoctorSchedule } from '../../src/types';
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function AvailabilityManagerScreen() {
-  const { user } = useAppSelector((s) => s.auth);
-  const { data: doctorListData } = useGetDoctorsQuery(
-    { search: user?.email, limit: 1 },
-    { skip: !user?.email },
-  );
-  const doctorId = Number(doctorListData?.data?.[0]?.id);
+  const { data: myProfileData } = useGetMyDoctorProfileQuery();
+  const doctorId = Number(myProfileData?.data?.id);
   const { data, isLoading, refetch } = useGetDoctorScheduleQuery(doctorId, { skip: !doctorId });
   const [updateMyDaySchedule, { isLoading: isUpdating }] = useUpdateMyDayScheduleMutation();
   const schedules: DoctorSchedule[] = data?.data || [];
